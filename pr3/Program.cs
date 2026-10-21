@@ -9,6 +9,10 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 
+
+//токен менеджера 2
+//"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3IiwibmFtZSI6Im1hbmFnZXIyIiwicm9sZSI6Ik1hbmFnZXIiLCJleHAiOjE3OTI1NzkyMDQsImlzcyI6Ikp3dERlbW8iLCJhdWQiOiJKd3REZW1vQXBpIn0.Bw2Bm5Bi78X0FkT_UIJqMZNVmpL71qSqR6AHErCiSDM"
+
 var builder = WebApplication.CreateBuilder(args);
 
 
@@ -104,6 +108,30 @@ app.MapPost("/login", async (Clothes_ShopContext db, LoginRequest request) =>
         token_type = "Bearer"
     });
 }).AllowAnonymous();
+
+
+
+app.MapPatch("/clothes/{id}/remove", async (Clothes_ShopContext db, int id) =>
+{
+    var clothe = await db.Clothes.FirstOrDefaultAsync(c => c.Id == id);
+    if (clothe == null) return Results.NotFound(new { message = "Товар не найден" });
+
+    clothe.Status = 0;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { message = "Товар убран" });
+}).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
+
+
+app.MapPatch("/clothes/{id}/return", async (Clothes_ShopContext db, int id) =>
+{
+    var clothe = await db.Clothes.FirstOrDefaultAsync(c => c.Id == id);
+    if (clothe == null) return Results.NotFound(new { message = "Товар не найден" });
+
+    clothe.Status = 1;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { message = "Товар возвращён в продажу" });
+}).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
+
 
 
 app.Run();
