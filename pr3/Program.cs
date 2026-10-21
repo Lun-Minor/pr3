@@ -134,6 +134,40 @@ app.MapPatch("/clothes/{id}/return", async (Clothes_ShopContext db, int id) =>
 
 
 
+
+app.MapPatch("/clothes/{clothesId}/sizes/{sizeId}/quantity",
+    async (Clothes_ShopContext db, int clothesId, int sizeId, UpdateQuantity request) =>
+    {
+
+        var sizeClothe = await db.SizesClothes.FirstOrDefaultAsync(s => s.IdClothes == clothesId && s.IdSizes == sizeId);
+
+        if (sizeClothe == null) return Results.NotFound(new { message = "У товара нет такого размера" });
+
+        if (request.Quantity < 0) return Results.BadRequest(new { message = "Количество не может быть отрицательным" });
+
+        sizeClothe.Quantity = request.Quantity;
+        await db.SaveChangesAsync();
+
+        return Results.Json(sizeClothe);
+    }).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
+
+
+app.MapPatch("/orders/{id}/status", async (Clothes_ShopContext db, int id, UpdateStatus request) =>
+{
+    var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == id);
+    if (order == null) return Results.NotFound(new { message = "Заказ не найден" });
+
+    if (!await db.Statuses.AnyAsync(s => s.Id == request.StatusId))
+        return Results.BadRequest(new { message = "Такого статуса нет" });
+
+    order.IdStatus = request.StatusId;
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { id = order.Id, statusId = order.IdStatus });
+}).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
+
+
+
 app.Run();
 
 
@@ -157,3 +191,4 @@ string CreateToken(User account)
 
     return new JwtSecurityTokenHandler().WriteToken(token);
 }
+
