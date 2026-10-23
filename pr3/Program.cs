@@ -112,11 +112,11 @@ app.MapPost("/login", async (Clothes_ShopContext db, LoginRequest request) =>
 app.MapPatch("/clothes/{id}/remove", async (Clothes_ShopContext db, int id) =>
 {
     var clothe = await db.Clothes.FirstOrDefaultAsync(c => c.Id == id);
-    if (clothe == null) return Results.NotFound(new { message = "товар не найден" });
+    if (clothe == null) return Results.NotFound(new { message = "Товар не найден" });
 
     clothe.Status = 0;
     await db.SaveChangesAsync();
-    return Results.Ok(new { message = "товар удален" });
+    return Results.Ok(new { message = "Товар убран" });
 }).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
 
 
@@ -127,7 +127,7 @@ app.MapPatch("/clothes/{id}/return", async (Clothes_ShopContext db, int id) =>
 
     clothe.Status = 1;
     await db.SaveChangesAsync();
-    return Results.Ok(new { message = "Товар вернули" });
+    return Results.Ok(new { message = "Товар возвращён в продажу" });
 }).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
 
 
@@ -139,9 +139,9 @@ app.MapPatch("/clothes/{clothesId}/sizes/{sizeId}/quantity",
 
         var sizeClothe = await db.SizesClothes.FirstOrDefaultAsync(s => s.IdClothes == clothesId && s.IdSizes == sizeId);
 
-        if (sizeClothe == null) return Results.NotFound(new { message = "Размер не найден" });
+        if (sizeClothe == null) return Results.NotFound(new { message = "У товара нет такого размера" });
 
-        if (request.Quantity < 0) return Results.BadRequest(new { message = "Нельза ставить отрицательное количество" });
+        if (request.Quantity < 0) return Results.BadRequest(new { message = "Количество не может быть отрицательным" });
 
         sizeClothe.Quantity = request.Quantity;
         await db.SaveChangesAsync();
@@ -156,14 +156,13 @@ app.MapPatch("/orders/{id}/status", async (Clothes_ShopContext db, int id, Updat
     if (order == null) return Results.NotFound(new { message = "Заказ не найден" });
 
     if (!await db.Statuses.AnyAsync(s => s.Id == request.StatusId))
-        return Results.BadRequest(new { message = "Статус не найден" });
+        return Results.BadRequest(new { message = "Такого статуса нет" });
 
     order.IdStatus = request.StatusId;
     await db.SaveChangesAsync();
 
     return Results.Ok(new { id = order.Id, statusId = order.IdStatus });
 }).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
-
 
 //КЛИЕНТ
 
@@ -350,66 +349,6 @@ app.MapPost("/orders", async (Clothes_ShopContext db, ClaimsPrincipal user, Crea
         );
     }
 }).RequireAuthorization();
-
-
-
-
-app.MapPatch("/clothes/{id}/remove", async (Clothes_ShopContext db, int id) =>
-{
-    var clothe = await db.Clothes.FirstOrDefaultAsync(c => c.Id == id);
-    if (clothe == null) return Results.NotFound(new { message = "Товар не найден" });
-
-    clothe.Status = 0;
-    await db.SaveChangesAsync();
-    return Results.Ok(new { message = "Товар убран" });
-}).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
-
-
-app.MapPatch("/clothes/{id}/return", async (Clothes_ShopContext db, int id) =>
-{
-    var clothe = await db.Clothes.FirstOrDefaultAsync(c => c.Id == id);
-    if (clothe == null) return Results.NotFound(new { message = "Товар не найден" });
-
-    clothe.Status = 1;
-    await db.SaveChangesAsync();
-    return Results.Ok(new { message = "Товар возвращён в продажу" });
-}).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
-
-
-
-
-app.MapPatch("/clothes/{clothesId}/sizes/{sizeId}/quantity",
-    async (Clothes_ShopContext db, int clothesId, int sizeId, UpdateQuantity request) =>
-    {
-
-        var sizeClothe = await db.SizesClothes.FirstOrDefaultAsync(s => s.IdClothes == clothesId && s.IdSizes == sizeId);
-
-        if (sizeClothe == null) return Results.NotFound(new { message = "У товара нет такого размера" });
-
-        if (request.Quantity < 0) return Results.BadRequest(new { message = "Количество не может быть отрицательным" });
-
-        sizeClothe.Quantity = request.Quantity;
-        await db.SaveChangesAsync();
-
-        return Results.Json(sizeClothe);
-    }).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
-
-
-app.MapPatch("/orders/{id}/status", async (Clothes_ShopContext db, int id, UpdateStatus request) =>
-{
-    var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == id);
-    if (order == null) return Results.NotFound(new { message = "Заказ не найден" });
-
-    if (!await db.Statuses.AnyAsync(s => s.Id == request.StatusId))
-        return Results.BadRequest(new { message = "Такого статуса нет" });
-
-    order.IdStatus = request.StatusId;
-    await db.SaveChangesAsync();
-
-    return Results.Ok(new { id = order.Id, statusId = order.IdStatus });
-}).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
-
-
 
 app.Run();
 
