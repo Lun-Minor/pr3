@@ -164,6 +164,7 @@ app.MapPatch("/orders/{id}/status", async (Clothes_ShopContext db, int id, Updat
     return Results.Ok(new { id = order.Id, statusId = order.IdStatus });
 }).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
 
+
 //ÊËÈÅÍÒ
 
 app.MapGet("/clothes", async(Clothes_ShopContext db) =>
@@ -360,6 +361,27 @@ app.MapGet("/orders/status/{statusId}", async (Clothes_ShopContext db, int statu
             o.OtderTime,
             Status = o.IdStatusNavigation.Name,
             User = o.IdUserNavigation.Login
+        })
+        .ToListAsync();
+
+    return Results.Ok(orders);
+})
+.RequireAuthorization();
+
+app.MapGet("/orders/my", async (Clothes_ShopContext db, ClaimsPrincipal user) =>
+{
+    var userIdClaim = user.FindFirst("sub")?.Value;
+
+    if (!int.TryParse(userIdClaim, out var userId))
+        return Results.Unauthorized();
+
+    var orders = await db.Orders
+        .Where(o => o.IdUser == userId)
+        .Select(o => new
+        {
+            o.Id,
+            o.OtderTime,
+            Status = o.IdStatusNavigation.Name
         })
         .ToListAsync();
 
