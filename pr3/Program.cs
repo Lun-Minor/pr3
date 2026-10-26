@@ -350,6 +350,23 @@ app.MapPost("/orders", async (Clothes_ShopContext db, ClaimsPrincipal user, Crea
     }
 }).RequireAuthorization();
 
+app.MapGet("/orders/status/{statusId}", async (Clothes_ShopContext db, int statusId) =>
+{
+    var orders = await db.Orders
+        .Where(o => o.IdStatus == statusId)
+        .Select(o => new
+        {
+            o.Id,
+            o.OtderTime,
+            Status = o.IdStatusNavigation.Name,
+            User = o.IdUserNavigation.Login
+        })
+        .ToListAsync();
+
+    return Results.Ok(orders);
+})
+.RequireAuthorization();
+
 app.Run();
 
 
