@@ -2,7 +2,6 @@
 #nullable disable
 using System;
 using System.Collections.Generic;
-using System.Text.Json.Serialization;
 
 namespace pr3.Models;
 
@@ -27,5 +26,4 @@ public partial class Clothe
     public virtual ICollection<OrderClothe> OrderClothes { get; set; } = new List<OrderClothe>();
 
     public virtual ICollection<SizesClothe> SizesClothes { get; set; } = new List<SizesClothe>();
- 
 }

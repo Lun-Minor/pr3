@@ -37,7 +37,7 @@ public partial class Clothes_ShopContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Data Source=DESKTOP-Q4V7SQJ;Initial Catalog=Clothes_Shop;Integrated Security=True;TrustServerCertificate=True;");
+        => optionsBuilder.UseSqlServer("Data Source=DESKTOP-Q4V7SQJ;Initial Catalog=Clothes_Shop;Integrated Security=True;Encrypt=True; TrustServerCertificate=True");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -87,9 +87,7 @@ public partial class Clothes_ShopContext : DbContext
 
             entity.ToTable("Order_Clothes");
 
-            entity.Property(e => e.IdOrder)
-                .ValueGeneratedOnAdd()
-                .HasColumnName("id_order");
+            entity.Property(e => e.IdOrder).HasColumnName("id_order");
             entity.Property(e => e.IdSize).HasColumnName("id_size");
             entity.Property(e => e.IdClothes).HasColumnName("id_Clothes");
             entity.Property(e => e.Quantity).HasColumnName("quantity");
@@ -139,9 +137,7 @@ public partial class Clothes_ShopContext : DbContext
 
             entity.ToTable("Sizes_Clothes");
 
-            entity.Property(e => e.IdSizes)
-                .ValueGeneratedOnAdd()
-                .HasColumnName("idSizes");
+            entity.Property(e => e.IdSizes).HasColumnName("idSizes");
             entity.Property(e => e.IdClothes).HasColumnName("idClothes");
 
             entity.HasOne(d => d.IdClothesNavigation).WithMany(p => p.SizesClothes)
