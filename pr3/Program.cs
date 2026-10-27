@@ -1,6 +1,7 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+п»їusing Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using pr3;
 using pr3.Models;
@@ -10,19 +11,50 @@ using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 
 
-//токен менеджера 2
-//"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3IiwibmFtZSI6Im1hbmFnZXIyIiwicm9sZSI6Ik1hbmFnZXIiLCJleHAiOjE3OTI1NzkyMDQsImlzcyI6Ikp3dERlbW8iLCJhdWQiOiJKd3REZW1vQXBpIn0.Bw2Bm5Bi78X0FkT_UIJqMZNVmpL71qSqR6AHErCiSDM"
+
 
 var builder = WebApplication.CreateBuilder(args);
-
-
-builder.Services.ConfigureHttpJsonOptions(options =>
-{
-    options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+builder.Services.ConfigureHttpJsonOptions(options => { 
+options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 });
-
-
 builder.Services.AddDbContext<Clothes_ShopContext>();
+
+
+
+
+
+
+
+
+
+//var builder = WebApplication.CreateBuilder(args);
+
+
+//builder.Services.ConfigureHttpJsonOptions(options =>
+//{
+//    options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+//});
+
+
+//builder.Services.AddDbContext<Clothes_ShopContext>();
+
+
+
+//var hasher = new PasswordHasher<User>();
+//var key = new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(32));
+//var validation = new TokenValidationParameters
+//{
+//    ValidateIssuer = true,
+//    ValidIssuer = "JwtDemo",
+//    ValidateAudience = true,
+//    ValidAudience = "JwtDemoApi",
+//    ValidateIssuerSigningKey = true,
+//    IssuerSigningKey = key,
+//    ValidateLifetime = true,
+//    ClockSkew = TimeSpan.Zero,
+//    NameClaimType = "name",
+//    RoleClaimType = "role"
+//}; 
 
 var hasher = new PasswordHasher<User>();
 
@@ -46,6 +78,8 @@ var validation = new TokenValidationParameters
     RoleClaimType = "role"
 };
 
+
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -68,10 +102,10 @@ app.MapPost("/reg", async (Clothes_ShopContext db, RegRequest request) =>
         string.IsNullOrWhiteSpace(request.Password) ||
         string.IsNullOrWhiteSpace(request.Phone) ||
         string.IsNullOrWhiteSpace(request.Address))
-        return Results.BadRequest(new { message = "Заполните все поля" });
+        return Results.BadRequest(new { message = "Р—Р°РїРѕР»РЅРёС‚Рµ РІСЃРµ РїРѕР»СЏ" });
 
     if (await db.Users.AnyAsync(u => u.Login == request.Login))
-        return Results.BadRequest(new { message = "Такой логин уже занят" });
+        return Results.BadRequest(new { message = "РўР°РєРѕР№ Р»РѕРіРёРЅ СѓР¶Рµ Р·Р°РЅСЏС‚" });
 
     var role = await db.Roles.FirstOrDefaultAsync(r => r.Name == "User");
    
@@ -112,22 +146,22 @@ app.MapPost("/login", async (Clothes_ShopContext db, LoginRequest request) =>
 app.MapPatch("/clothes/{id}/remove", async (Clothes_ShopContext db, int id) =>
 {
     var clothe = await db.Clothes.FirstOrDefaultAsync(c => c.Id == id);
-    if (clothe == null) return Results.NotFound(new { message = "Товар не найден" });
+    if (clothe == null) return Results.NotFound(new { message = "РўРѕРІР°СЂ РЅРµ РЅР°Р№РґРµРЅ" });
 
     clothe.Status = 0;
     await db.SaveChangesAsync();
-    return Results.Ok(new { message = "Товар убран" });
+    return Results.Ok(new { message = "РўРѕРІР°СЂ СѓР±СЂР°РЅ" });
 }).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
 
 
 app.MapPatch("/clothes/{id}/return", async (Clothes_ShopContext db, int id) =>
 {
     var clothe = await db.Clothes.FirstOrDefaultAsync(c => c.Id == id);
-    if (clothe == null) return Results.NotFound(new { message = "Товар не найден" });
+    if (clothe == null) return Results.NotFound(new { message = "РўРѕРІР°СЂ РЅРµ РЅР°Р№РґРµРЅ" });
 
     clothe.Status = 1;
     await db.SaveChangesAsync();
-    return Results.Ok(new { message = "Товар возвращён в продажу" });
+    return Results.Ok(new { message = "РўРѕРІР°СЂ РІРѕР·РІСЂР°С‰С‘РЅ РІ РїСЂРѕРґР°Р¶Сѓ" });
 }).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
 
 
@@ -139,9 +173,9 @@ app.MapPatch("/clothes/{clothesId}/sizes/{sizeId}/quantity",
 
         var sizeClothe = await db.SizesClothes.FirstOrDefaultAsync(s => s.IdClothes == clothesId && s.IdSizes == sizeId);
 
-        if (sizeClothe == null) return Results.NotFound(new { message = "У товара нет такого размера" });
+        if (sizeClothe == null) return Results.NotFound(new { message = "РЈ С‚РѕРІР°СЂР° РЅРµС‚ С‚Р°РєРѕРіРѕ СЂР°Р·РјРµСЂР°" });
 
-        if (request.Quantity < 0) return Results.BadRequest(new { message = "Количество не может быть отрицательным" });
+        if (request.Quantity < 0) return Results.BadRequest(new { message = "РљРѕР»РёС‡РµСЃС‚РІРѕ РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РѕС‚СЂРёС†Р°С‚РµР»СЊРЅС‹Рј" });
 
         sizeClothe.Quantity = request.Quantity;
         await db.SaveChangesAsync();
@@ -153,10 +187,10 @@ app.MapPatch("/clothes/{clothesId}/sizes/{sizeId}/quantity",
 app.MapPatch("/orders/{id}/status", async (Clothes_ShopContext db, int id, UpdateStatus request) =>
 {
     var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == id);
-    if (order == null) return Results.NotFound(new { message = "Заказ не найден" });
+    if (order == null) return Results.NotFound(new { message = "Р—Р°РєР°Р· РЅРµ РЅР°Р№РґРµРЅ" });
 
     if (!await db.Statuses.AnyAsync(s => s.Id == request.StatusId))
-        return Results.BadRequest(new { message = "Такого статуса нет" });
+        return Results.BadRequest(new { message = "РўР°РєРѕРіРѕ СЃС‚Р°С‚СѓСЃР° РЅРµС‚" });
 
     order.IdStatus = request.StatusId;
     await db.SaveChangesAsync();
@@ -388,6 +422,7 @@ app.MapGet("/orders/my", async (Clothes_ShopContext db, ClaimsPrincipal user) =>
     return Results.Ok(orders);
 })
 .RequireAuthorization();
+
 
 app.Run();
 
