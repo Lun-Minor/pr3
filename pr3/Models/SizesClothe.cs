@@ -2,6 +2,7 @@
 #nullable disable
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace pr3.Models;
 
@@ -16,4 +17,6 @@ public partial class SizesClothe
     public virtual Clothe IdClothesNavigation { get; set; }
 
     public virtual Size IdSizesNavigation { get; set; }
+
+   
 }
