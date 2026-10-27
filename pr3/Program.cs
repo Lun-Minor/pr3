@@ -109,8 +109,6 @@ app.MapPost("/login", async (Clothes_ShopContext db, LoginRequest request) =>
     });
 }).AllowAnonymous();
 
-
-
 app.MapPatch("/clothes/{id}/remove", async (Clothes_ShopContext db, int id) =>
 {
     var clothe = await db.Clothes.FirstOrDefaultAsync(c => c.Id == id);
@@ -167,6 +165,229 @@ app.MapPatch("/orders/{id}/status", async (Clothes_ShopContext db, int id, Updat
 }).RequireAuthorization(policy => policy.RequireAuthenticatedUser().RequireRole("Manager"));
 
 
+//КЛИЕНТ
+
+app.MapGet("/clothes", async(Clothes_ShopContext db) =>
+{
+    var clothes = await db.Clothes
+    .Select(c=> new
+    {
+        c.Id,
+        c.Name,
+        c.Description,
+        c.AmountOrders,
+        Status = c.Status == 1 ? "В продаже" : "Снят с продажи",
+        Type = c.IdTypeNavigation.Name,
+        c.Price,
+        Sizes = c.SizesClothes.Select(s => new
+        {
+            Size = s.IdSizesNavigation.SizeWord,
+            s.Quantity
+        })
+    })
+    .ToListAsync();
+    return Results.Json(clothes);
+});
+
+app.MapGet("/clothes/search", async (string name, Clothes_ShopContext db) =>
+{
+    var clothes = await db.Clothes
+    .Where(c => c.Name.Contains(name))
+    .Select(c => new
+    {
+        c.Id,
+        c.Name,
+        c.Description,
+        c.AmountOrders,
+        Status = c.Status == 1 ? "В продаже" : "Снят с продажи",
+        Type = c.IdTypeNavigation.Name,
+        c.Price,
+        Sizes = c.SizesClothes.Select(s => new
+        {
+            Size = s.IdSizesNavigation.SizeWord,
+            s.Quantity
+        }).ToList()
+    })
+    .ToListAsync();
+    return Results.Json(clothes);
+});
+
+
+
+app.MapPost("/orders", async (Clothes_ShopContext db, ClaimsPrincipal user, CreateOrder request) =>
+{
+    if (request.ItemsInOrder == null || request.ItemsInOrder.Count == 0)
+        return Results.BadRequest(new { message = "Заказ пустой" });
+
+    var userIdClaim = user.FindFirst("sub")?.Value;
+
+    if (!int.TryParse(userIdClaim, out var userId))
+        return Results.Unauthorized();
+
+    var accountExists = await db.Users.AnyAsync(u => u.Id == userId);
+
+    if (!accountExists)
+        return Results.Unauthorized();
+
+    var status = await db.Statuses
+        .OrderBy(s => s.Id)
+        .FirstOrDefaultAsync();
+
+    if (status == null)
+        return Results.BadRequest(new { message = "В таблице Status нет статусов" });
+
+    foreach (var item in request.ItemsInOrder)
+    {
+        if (item.Quantity <= 0)
+            return Results.BadRequest(new { message = "Количество должно быть больше нуля" });
+
+        var clothe = await db.Clothes
+            .FirstOrDefaultAsync(c => c.Id == item.ClothesId);
+
+        if (clothe == null || clothe.Status != 1)
+            return Results.BadRequest(new
+            {
+                message = $"Товар {item.ClothesId} не найден или снят с продажи"
+            });
+
+        var sizeClothe = await db.SizesClothes
+            .FirstOrDefaultAsync(s =>
+                s.IdClothes == item.ClothesId &&
+                s.IdSizes == item.SizeId);
+
+        if (sizeClothe == null || sizeClothe.Quantity < item.Quantity)
+            return Results.BadRequest(new
+            {
+                message = $"Товара {item.ClothesId} размера {item.SizeId} недостаточно"
+            });
+    }
+
+    await using var transaction = await db.Database.BeginTransactionAsync();
+
+    var identityInsertEnabled = false;
+
+    try
+    {
+        var order = new Order
+        {
+            OtderTime = DateTime.Now,
+            IdStatus = status.Id,
+            IdUser = userId
+        };
+
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+
+        await db.Database.ExecuteSqlRawAsync(
+            "SET IDENTITY_INSERT dbo.Order_Clothes ON");
+
+        identityInsertEnabled = true;
+
+        foreach (var item in request.ItemsInOrder)
+        {
+            var clothe = await db.Clothes
+                .FirstAsync(c => c.Id == item.ClothesId);
+
+            var sizeClothe = await db.SizesClothes
+                .FirstAsync(s =>
+                    s.IdClothes == item.ClothesId &&
+                    s.IdSizes == item.SizeId);
+
+            sizeClothe.Quantity -= item.Quantity;
+            clothe.AmountOrders += item.Quantity;
+
+            db.OrderClothes.Add(new OrderClothe
+            {
+                IdOrder = order.Id,
+                IdSize = item.SizeId,
+                IdClothes = item.ClothesId,
+                Quantity = item.Quantity,
+                TotalPrice = clothe.Price * item.Quantity
+            });
+        }
+
+        await db.SaveChangesAsync();
+
+        await db.Database.ExecuteSqlRawAsync(
+            "SET IDENTITY_INSERT dbo.Order_Clothes OFF");
+
+        identityInsertEnabled = false;
+
+        await transaction.CommitAsync();
+
+        return Results.Created(
+            $"/orders/{order.Id}",
+            new
+            {
+                id = order.Id,
+                status = status.Name,
+                message = "Заказ успешно оформлен"
+            });
+    }
+    catch (Exception ex)
+    {
+        if (identityInsertEnabled)
+        {
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync(
+                    "SET IDENTITY_INSERT dbo.Order_Clothes OFF");
+            }
+            catch
+            {
+              
+            }
+        }
+
+        await transaction.RollbackAsync();
+
+        Console.WriteLine("Ошибка оформления заказа: " + ex);
+
+        return Results.Problem(
+            statusCode: 500,
+            title: "Ошибка при оформлении заказа",
+            detail: ex.InnerException?.Message ?? ex.Message
+        );
+    }
+}).RequireAuthorization();
+
+app.MapGet("/orders/status/{statusId}", async (Clothes_ShopContext db, int statusId) =>
+{
+    var orders = await db.Orders
+        .Where(o => o.IdStatus == statusId)
+        .Select(o => new
+        {
+            o.Id,
+            o.OtderTime,
+            Status = o.IdStatusNavigation.Name,
+            User = o.IdUserNavigation.Login
+        })
+        .ToListAsync();
+
+    return Results.Ok(orders);
+})
+.RequireAuthorization();
+
+app.MapGet("/orders/my", async (Clothes_ShopContext db, ClaimsPrincipal user) =>
+{
+    var userIdClaim = user.FindFirst("sub")?.Value;
+
+    if (!int.TryParse(userIdClaim, out var userId))
+        return Results.Unauthorized();
+
+    var orders = await db.Orders
+        .Where(o => o.IdUser == userId)
+        .Select(o => new
+        {
+            o.Id,
+            o.OtderTime,
+            Status = o.IdStatusNavigation.Name
+        })
+        .ToListAsync();
+
+    return Results.Ok(orders);
+})
+.RequireAuthorization();
 
 app.Run();
 
@@ -192,5 +413,30 @@ string CreateToken(User account)
     return new JwtSecurityTokenHandler().WriteToken(token);
 }
 
+public record LoginRequest(string Login, string Password);
+public record RegRequest(string Login, string Password, string Phone, string Address);
 
-//
+public class UpdateQuantity
+{
+    public int Quantity { get; set; }
+}
+
+
+public class UpdateStatus
+{
+    public int StatusId { get; set; }
+}
+
+public class CreateOrder
+{
+    public List<OrderItem> ItemsInOrder { get; set; } = new();
+}
+
+public class OrderItem
+{
+    public int ClothesId { get; set; }
+
+    public int SizeId { get; set; }
+
+    public int Quantity { get; set; }
+}
